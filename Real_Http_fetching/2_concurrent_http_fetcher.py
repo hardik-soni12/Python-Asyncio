@@ -2,13 +2,23 @@ import asyncio
 import aiohttp
 import time
 
+start_time = None
+
 async def fetch_url(session, url):
     """Fetch a single URL, return (url, content_length)"""
+    global start_time
+    elapsed = time.time() - start_time
+    print(f"[{elapsed:.2f}s] Starting {url}")
+    
     try:
         async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
             text = await resp.text()
+            elapsed = time.time() - start_time
+            print(f"[{elapsed:.2f}s] Finished {url}: {len(text)} bytes")
             return url, len(text)
     except Exception as e:
+        elapsed = time.time() - start_time
+        print(f"[{elapsed:.2f}s] Error {url}: {type(e).__name__}")
         return url, f"Error: {type(e).__name__}"
 
 async def fetch_multiple(urls):
@@ -19,6 +29,7 @@ async def fetch_multiple(urls):
         return results
 
 async def main():
+    global start_time
     urls = [
         "https://api.github.com/users/github",
         "https://api.github.com/users/google",
@@ -27,29 +38,13 @@ async def main():
         "https://api.github.com/users/netflix",
     ]
     
-    print(f"Fetching {len(urls)} URLs...\n")
+    print(f"Fetching {len(urls)} URLs concurrently...\n")
     
-    # Sequential
-    print("--- SEQUENTIAL ---")
+    start_time = time.time()
     start = time.time()
-    results_seq = []
-    async with aiohttp.ClientSession() as session:
-        for url in urls:
-            result = await fetch_url(session, url)
-            results_seq.append(result)
-    seq_time = time.time() - start
-    print(f"Time: {seq_time:.2f}s\n")
-    
-    # Concurrent
-    print("--- CONCURRENT ---")
-    start = time.time()
-    results_conc = await fetch_multiple(urls)
+    results = await fetch_multiple(urls)
     conc_time = time.time() - start
-    print(f"Time: {conc_time:.2f}s")
-    print(f"Speedup: {seq_time / conc_time:.1f}x\n")
     
-    print("Results:")
-    for url, length in results_conc:
-        print(f"  {url}: {length} bytes")
+    print(f"\nTotal time: {conc_time:.2f}s")
 
 asyncio.run(main())
